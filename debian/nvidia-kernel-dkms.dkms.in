@@ -1,0 +1,21 @@
+# DKMS configuration for the NVIDIA kernel module.  -*- sh -*-
+
+# The version is replaced at build time by dh_dkms invoked in debian/rules.
+PACKAGE_NAME="#MODULE#"
+PACKAGE_VERSION="#MODULE_VERSION#"
+
+BUILT_MODULE_NAME[0]="nvidia"
+DEST_MODULE_NAME[0]="$PACKAGE_NAME"
+DEST_MODULE_LOCATION[0]="/updates/dkms"
+AUTOINSTALL=yes
+
+MAKE[0]="env CCACHE_DISABLE=1 \
+    make -C . SYSSRC=${kernel_source_dir}"
+CLEAN="make -C . SYSSRC=${kernel_source_dir} clean"
+
+BUILT_MODULE_NAME[1]="nvidia-uvm"
+BUILT_MODULE_LOCATION[1]="uvm/"
+DEST_MODULE_LOCATION[1]="/updates/dkms"
+MAKE[0]+="; env CCACHE_DISABLE=1 \
+    make -C uvm SYSSRC=${kernel_source_dir}"
+CLEAN+="; make -C uvm SYSSRC=${kernel_source_dir} clean"

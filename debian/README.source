@@ -1,0 +1,117 @@
+Importing a New Upstream Release
+
+    The *.orig.tar.gz file for nvidia-graphics-drivers contains just a
+    directory named nvidia-graphics-drivers-<version> containing the
+    upstream .run files for amd64, i386, and maybe armhf.
+    Everything else comes from the Subversion repository for the package.
+
+    Use the following steps to update to a new upstream release:
+
+    * Check for a new version
+
+          uscan --report
+
+    * Create a changelog entry for the new version
+
+          debchange --distribution UNRELEASED --newversion <version>-1
+
+    * Download the driver archives and create a new .orig.tar.gz
+
+          debian/rules get-orig-source
+
+      Alternatively do it manually:
+      - Download the .run files for i386 and amd64 from upstream.
+      - mkdir nvidia-graphics-drivers-<version>.orig and place package files
+        in that directory.  Make them executable.  Then, create the orig
+        tarball with:
+            tar czvf nvidia-graphics-drivers_<version>.orig.tar.gz
+
+    * For generating tarballs of older versions first set WATCH_VERSION in
+      debian/rules.defs appropriately and regenerate debian/watch.
+
+    * Edit debian/module/conftest.h if necessary for kernel compatibility
+      and test.
+
+    * Add the new *.orig.tar.gz to the tarballs directory in the svn
+      repository: svn://svn.debian.org/svn/pkg-nvidia/tarballs
+
+Building and Uploading
+
+    The easiest way to do this is to pick the architecture on which one
+    can easily build and test (either i386 or amd64) and ensure the
+    package is working there.  Then, do a final package build for upload.
+    Note that you don't need an
+    NVIDIA card on the system where you're doing the build, but of course
+    ideally you want to test on all architectures before upload.  Most
+    problems (at least of the kind that can be fixed in Debian) come from
+    building the kernel modules, which you can do without having an NVIDIA
+    card.
+
+ -- Russ Allbery <rra@debian.org>, Tue,  6 Apr 2010 23:36:07 -0700
+
+
+Using the nks-history.git repository for upstreams changelog and the non-blob
+parts of the kernel module
+
+    This repository is intended to simplify extracting upstream changelog
+    updates and reimplementing the conftest.sh script as conftest.h.
+
+    To setup an initial clone of this repository run these two commands in
+    an empty directory:
+
+      git clone git+ssh://git.debian.org/git/pkg-nvidia/nks-history.git history
+      git clone git+ssh://git.debian.org/git/pkg-nvidia/nks-history.git --reference history -b scripts scripts
+
+    To importing the changelog and module source of a new release follow
+    these instructions:
+
+    * Change to the scripts directory.
+    * Edit 'versions'.
+    * Run ./00import-history
+    * Look at the imported history (in the ../history repository) e.g. using
+      gitk. If something was wrong or a parent was missing, edit 'versions'
+      and run ./00import-history again. Repeat until you are happy.
+    * Commit 'versions' and push both repositories (scripts and history).
+    * Update debian/changelog and conftest.h with data from nks-history.
+
+ -- Andreas Beckmann <anbe@debian.org>  Sun, 09 Nov 2014 14:49:10 +0100
+
+
+Importing a new upstream release that moved support for some legacy cards
+to a new legacy driver
+
+    * Import the new upstream (as usual) into a new branch, first targeting
+      experimental.
+    * Build a list of no longer supported PCI IDs:
+        comm -23 ../../trunk/debian/nv-readme.ids debian/nv-readme.ids > unsupported.ids
+    * Replace the PCI ID list in debian/libgl1-nvidia-glx.preinst.
+    * Build lists of the no longer supported GPU model and chipset names:
+        debian/rules unsupported.names
+        sort -k2 unsupported.names > unsupported.names.sorted
+        sed 's/.*\[/[/' unsupported.names | sort -u > chips-eol.txt
+    * Create an nvidia-driver.NEWS entry about the legacy models.
+    * Update debian/control.models to the still supported ones.
+
+ -- Andreas Beckmann <anbe@debian.org>  Tue, 14 Oct 2014 16:11:22 +0200
+
+
+Forking a new legacy package
+
+    In order to create a new legacy package (e.g. for legacy version 42)
+    from this source package, the following changes need to be done:
+
+    * in debian/rules.defs set   NVIDIA_LEGACY = 42
+
+    * in
+        - debian/changelog
+        - debian/control (Source: and Package: lines)
+      change the package name by inserting '-legacy-42xx' into the package
+      name after
+        - nvidia-glx
+        - libgl1-nvidia
+        - nvidia-kernel
+        - nvidia-graphics-drivers
+
+    * remove all packages that should no longer be built from debian/control
+
+ -- Andreas Beckmann <debian@abeckmann.de>  Mon, 07 Jun 2010 16:10:09 +0200

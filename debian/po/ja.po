@@ -1,0 +1,64 @@
+# Translation of debconf tempates for the nvidia-driver package into japanese
+# Copyright (C) 2012
+# This file is distributed under the same license as the nvidia-driver package.
+# Kenshi Muto <kmuto@debian.org>, 2012.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: nvidia-graphics-drivers\n"
+"Report-Msgid-Bugs-To: nvidia-graphics-drivers@packages.debian.org\n"
+"POT-Creation-Date: 2014-10-20 02:45+0200\n"
+"PO-Revision-Date: 2012-09-19 21:15+0900\n"
+"Last-Translator: Kenshi Muto <kmuto@debian.org>\n"
+"Language-Team: debian-japanese <debian-japanese@lists.debian.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: boolean
+#. Description
+#. Translators, do not translate the ${substitution} ${variables}.
+#. ${vendor} will be substituted with 'NVIDIA' or 'Fglrx' (without quotes, of
+#. course), ${free_name} will become 'Nouveau' or 'Radeon' (no quotes, again)
+#. and the ${*driver} variables will be replaced with package names.
+#: ../libgl1-nvidia-glx.templates:3001
+msgid "Install ${vendor} driver despite unsupported graphics card?"
+msgstr ""
+"サポートされていないグラフィックスカードですが ${vendor} ドライバをインストー"
+"ルしますか?"
+
+#. Type: boolean
+#. Description
+#: ../libgl1-nvidia-glx.templates:3001
+msgid ""
+"This system has a graphics card which is no longer handled by the ${vendor} "
+"driver (package ${driver}). You may wish to keep the package installed - for "
+"instance to drive some other card - but the card with the following chipset "
+"won't be usable:"
+msgstr ""
+"このシステムには ${vendor} ドライバ (${driver} パッケージ) ではもう扱われな"
+"い、グラフィックカードがあります。たとえばほかのカードを動作させるなどのため"
+"にパッケージをインストールしたままにしたいかもしれませんが、下記のチップセッ"
+"トを使ったカードは利用できなくなります:"
+
+#. Type: boolean
+#. Description
+#: ../libgl1-nvidia-glx.templates:3001
+msgid ""
+"The above card requires either the non-free legacy ${vendor} driver (package "
+"${legacy_driver}) or the free ${free_name} driver (package ${free_driver})."
+msgstr ""
+"上記のカードには、フリーではない旧式の ${vendor} ドライバ (${legacy_driver} "
+"パッケージ) またはフリーの ${free_name} ドライバ (${free_driver} パッケージ) "
+"のいずれかが必要です。"
+
+#. Type: boolean
+#. Description
+#: ../libgl1-nvidia-glx.templates:3001
+msgid ""
+"Before the ${free_name} driver can be used you must remove ${vendor} "
+"configuration from xorg.conf (and xorg.conf.d/)."
+msgstr ""
+"${free_name} ドライバを利用できるようにするには、${vendor} の設定を xorg."
+"conf (および xorg.conf.d/) から削除しなければなりません。"

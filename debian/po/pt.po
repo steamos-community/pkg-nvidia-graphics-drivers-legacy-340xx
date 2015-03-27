@@ -1,0 +1,63 @@
+# translation of nvidia-driver debconf to Portuguese
+# Copyright (C) 2009 the nvidia-driver's copyright holder
+# This file is distributed under the same license as the nvidia-driver package.
+#
+# Américo Monteiro <a_monteiro@netcabo.pt>, 2009, 2012.
+msgid ""
+msgstr ""
+"Project-Id-Version: nvidia-graphics-drivers\n"
+"Report-Msgid-Bugs-To: nvidia-graphics-drivers@packages.debian.org\n"
+"POT-Creation-Date: 2014-10-20 02:45+0200\n"
+"PO-Revision-Date: 2012-09-19 23:40+0100\n"
+"Last-Translator: Américo Monteiro <a_monteiro@netcabo.pt>\n"
+"Language-Team: Portuguese <l10n@debianpt.org>\n"
+"Language: pt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Lokalize 1.5\n"
+
+#. Type: boolean
+#. Description
+#. Translators, do not translate the ${substitution} ${variables}.
+#. ${vendor} will be substituted with 'NVIDIA' or 'Fglrx' (without quotes, of
+#. course), ${free_name} will become 'Nouveau' or 'Radeon' (no quotes, again)
+#. and the ${*driver} variables will be replaced with package names.
+#: ../libgl1-nvidia-glx.templates:3001
+msgid "Install ${vendor} driver despite unsupported graphics card?"
+msgstr "Instalar a driver ${vendor} apesar da placa gráfica não ser suportada?"
+
+#. Type: boolean
+#. Description
+#: ../libgl1-nvidia-glx.templates:3001
+msgid ""
+"This system has a graphics card which is no longer handled by the ${vendor} "
+"driver (package ${driver}). You may wish to keep the package installed - for "
+"instance to drive some other card - but the card with the following chipset "
+"won't be usable:"
+msgstr ""
+"O sistema tem uma placa gráfica que já não é suportada pela driver ${vendor} "
+"(pacote ${driver}). Você pode desejar manter o pacote instalado - por "
+"exemplo para lidar com outra placa) - mas a placa com o seguinte chipset não "
+"irá funcionar:"
+
+#. Type: boolean
+#. Description
+#: ../libgl1-nvidia-glx.templates:3001
+msgid ""
+"The above card requires either the non-free legacy ${vendor} driver (package "
+"${legacy_driver}) or the free ${free_name} driver (package ${free_driver})."
+msgstr ""
+"A placa acima necessita da driver ${vendor} legacy não-livre (pacote "
+"${legacy_driver}) ou a driver ${free_name} livre (pacote ${free_driver})."
+
+#. Type: boolean
+#. Description
+#: ../libgl1-nvidia-glx.templates:3001
+msgid ""
+"Before the ${free_name} driver can be used you must remove ${vendor} "
+"configuration from xorg.conf (and xorg.conf.d/)."
+msgstr ""
+"Antes de poder usar a driver ${free_name} você tem de remover a configuração "
+"da ${vendor} do xorg.conf (e de xorg.conf.d/)."

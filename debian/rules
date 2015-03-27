@@ -1,0 +1,384 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+DEB_HOST_ARCH		?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
+DEB_HOST_MULTIARCH	?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
+NVIDIA_RELEASE		:= $(shell dpkg-parsechangelog | sed -nr '/^Version:/s/Version: (.*:)?(.*)-(.*)/\2/p')
+BUILD_DATE		:= $(shell dpkg-parsechangelog --show-field=Date)
+include debian/rules.defs
+NVIDIA_LEGACY		?=
+WATCH_VERSION		?= $(NVIDIA_LEGACY)
+WATCH_PATTERN		?=
+XORG_ABI_LIST		?=
+XORG_BOUND		?=
+BACKPORT		?=
+NVIDIA_SETTINGS		?= nvidia-settings$(legacy)
+NVIDIA_ALTERNATIVE	?= nvidia$(legacy)-alternative
+version			 = $(NVIDIA_RELEASE)
+version_major		 = $(firstword $(subst ., ,$(version)))
+nvidia			 = nvidia$(legacy)
+libcuda1		 = lib$(if $(legacy),$(nvidia)-)cuda1
+module			 = nvidia-$(current)
+current			 = $(if $(legacy),$(patsubst -%,%,$(legacy)),current)
+legacy			 = $(if $(NVIDIA_LEGACY),-legacy-$(NVIDIA_LEGACY)xx)
+legacy_description	 = $(if $(NVIDIA_LEGACY), ($(NVIDIA_LEGACY)xx legacy version))
+perfkit			 =
+watch_pattern		 = $(or $(WATCH_PATTERN),$(if $(WATCH_VERSION),$(WATCH_VERSION)(?:\.[\d\.\-]+)?),[\d\.\-]+)
+filename_i386		 = $(NVIDIA_FILENAME_X86)
+filename_amd64		 = $(NVIDIA_FILENAME_X86_64)
+filename_armhf		 = $(NVIDIA_FILENAME_armhf)
+dirname_i386		 = $(NVIDIA_DIRNAME_X86)
+dirname_amd64		 = $(NVIDIA_DIRNAME_X86_64)
+dirname_armhf		 = $(NVIDIA_DIRNAME_armhf)
+ARCH_LIST		?= i386 amd64
+ARCH_DEPS_i386		?= amd64
+
+# system libdir
+libdir			?= usr/lib/$(DEB_HOST_MULTIARCH)
+# nvidia version specific directory below $(libdir)
+nvidia_private		 = nvidia/$(current)
+
+CONTROL_PREFIXES	 = nvidia-driver nvidia-glx libgl1-nvidia nvidia-kernel nvidia-alternative xserver-xorg-video-nvidia nvidia-modprobe
+CONTROL_PREFIXES	+= libnvidia-eglcore libegl1-nvidia libgles1-nvidia libgles2-nvidia
+CONTROL_PREFIXES	+= nvidia-vdpau-driver
+CONTROL_PREFIXES	+= libcuda1
+CONTROL_PREFIXES	+= nvidia-opencl-icd libnvidia-compiler
+CONTROL_PREFIXES	+= libnvidia-ml1 nvidia-smi
+CONTROL_PREFIXES	+= libnvidia-ifr1 libnvidia-fbc1
+CONTROL_PREFIXES	+= libnvidia-encode1 libnvcuvid1
+RENAME_nvidia-glx		 = nvidia-glx$(legacy)
+RENAME_nvidia-alternative	 = $(NVIDIA_ALTERNATIVE)
+RENAME_libnvcuvid1		 = lib$(if $(legacy),${nvidia}-)nvcuvid1
+RENAME_libcuda1			 = $(libcuda1)
+renamed_prefix		 = $(or $(RENAME_$1),$(subst nvidia,$(nvidia),$1))
+CONTROL_PREFIXES_RENAMED = $(foreach p,$(CONTROL_PREFIXES),$(call renamed_prefix,$p))
+
+# $1=file, $2=prefix
+applyprefixrename	 = $(patsubst debian/$2%,debian/$(call renamed_prefix,$2)%,$1)
+# $1=file, $2=prefixlist
+applyprefixrenamelist	 = $(if $2,$(call applyprefixrenamelist,$(call applyprefixrename,$1,$(firstword $2)),$(wordlist 2,$(words $2),$2)),$1)
+
+ALL_CONTROL	:= $(wildcard $(patsubst %,debian/%*,$(CONTROL_PREFIXES)))
+LEGACY_CONTROL	:= $(wildcard $(patsubst %,debian/%*,$(CONTROL_PREFIXES_RENAMED)))
+RENAME_CONTROL	 = $(filter-out $(LEGACY_CONTROL),$(ALL_CONTROL))
+RENAMED_CONTROL	 = $(foreach f,$(RENAME_CONTROL),$(call applyprefixrenamelist,$f,$(CONTROL_PREFIXES)))
+TEMPLATES	:= $(wildcard debian/*.in debian/module/debian/*.in debian/module/debian/patches/*.in debian/detect/*.in)
+AUTOGEN		+= $(patsubst %.in,%,$(TEMPLATES))
+AUTOGEN		+= debian/module/debian/changelog
+AUTOGEN		+= $(patsubst %.in,%,$(RENAMED_CONTROL))
+AUTOKEEP	 = debian/watch
+AUTOCLEAN	 = $(filter-out $(AUTOKEEP),$(AUTOGEN))
+
+module_source	 = debian/$(nvidia)-kernel-source/usr/src/modules/$(nvidia)-kernel
+module_txz	 = $(subst /modules/,/,$(module_source)).tar.xz
+dkms_source	 = debian/$(nvidia)-kernel-dkms/usr/src/$(module)-$(version)
+
+comma		 = ,
+xorg_depends	 = $(foreach abi, $(XORG_ABI_LIST), xorg-video-abi-$(abi) |)
+xorg_depends	+= $(comma) xserver-xorg-core $(XORG_BOUND)
+xorg_provides	 = xorg-driver-video
+
+
+.PHONY: autogen prepare patch
+autogen: $(AUTOGEN)
+prepare: autogen unpack-stamp nvidia.ids compare-copyright-license
+patch: prepare
+
+NVIDIA-Linux-%:
+	sh ${filename_$*} --extract-only
+	ln -s ${dirname_$*} $@
+	test -f $@/README.txt || \
+		mv $@/usr/share/doc/README.txt $@/README.txt 2>/dev/null || \
+		mv $@/usr/share/doc/README $@/README.txt
+	test -f $@/NVIDIA_Changelog || \
+		mv $@/usr/share/doc/NVIDIA_Changelog $@/
+	test -d $@/kernel || \
+		mv $@/usr/src/nv $@/kernel
+	-gunzip $@/*.1.gz
+
+# Unpack all architectures, we may need files from all of them.
+unpack-stamp: $(patsubst %,NVIDIA-Linux-%,$(ARCH_LIST))
+	dh_testdir
+	ln -s NVIDIA-Linux-$(DEB_HOST_ARCH) NVIDIA-Linux
+	QUILT_PATCHES=debian/patches QUILT_SERIES=series-postunpack quilt --quiltrc /dev/null push -a || test $$? = 2
+	ls -al
+	touch $@
+
+nv-readme.ids: unpack-stamp
+	sed	-e '0,/A. Supported\|APPENDIX A: SUPPORTED/d' \
+		-e '0,/Appendix A. Supported\|APPENDIX A: SUPPORTED/d' \
+		-e '0,/^Below\|APPENDIX B/{/ 0x/s/.*  0x\([0-9a-fA-F]\{4\}\).*/10de\1/p; /^.\{41\} [0-9a-fA-F]\{4\} /s/^.\{41\} \([0-9a-fA-F]\{4\}\) .*/10de\1/p};d' \
+		NVIDIA-Linux/README.txt \
+		| tr a-f A-F | sort -u > $@
+	@set -e -x ; \
+	if ! cmp -s debian/$@ $@ ; then \
+		diff -u debian/$@ $@ || true ; \
+		: "*** Supported PCI IDs have changed. See diff above. Aborting. ***"; \
+		exit 1 ; \
+	fi
+
+nvidia.ids: nv-readme.ids
+	cp $< $@
+
+# Reformat the LICENSE to the format needed for debian/copyright.
+LICENSE.txt: unpack-stamp
+	sed -e 's/^ *//; s/ *$$//; s/^$$/./; s/^/ /;' NVIDIA-Linux/LICENSE > $@
+
+# Compare the license in debian/copyright with the LICENSE shipped in the archive.
+compare-copyright-license: LICENSE.txt
+	sed -e '1,/^License: NVIDIA-graphics-drivers/d; 1,/^License: NVIDIA-graphics-drivers$$/d; /^$$\|^Comment:$$/,$$d; /^ \.$$/d' debian/copyright > copyright.tmp
+	sed -e '/^ \.$$/d' LICENSE.txt > LICENSE.tmp
+	diff -w copyright.tmp LICENSE.tmp
+	rm -f copyright.tmp LICENSE.tmp
+
+
+.PHONY: binary binary-arch binary-indep build clean install
+binary binary-arch binary-indep build clean install:
+	dh $@ --with dkms
+
+override_dh_auto_clean:
+	rm -fr .pc
+	rm -f NVIDIA-Linux
+	rm -fr $(foreach a,$(ARCH_LIST),NVIDIA-Linux-$a $(dirname_$a))
+	rm -fr debian/temp
+	rm -fr kernel-source-tree
+	rm -f nvidia.ids nv-kernel.ids nv-readme.ids pci.ids.nvidia*
+	rm -f LICENSE.txt LICENSE.tmp copyright.tmp
+	test ! -d debian/po || debconf-updatepo
+
+override_dh_clean:
+	dh_clean
+	rm -f $(AUTOCLEAN)
+	$(MAKE) -f debian/rules $(AUTOKEEP)
+
+override_dh_auto_configure: prepare
+
+# Build two kernel module source tarballs for use with
+#  - module-assistant and make-kpkg
+#  - dkms
+.PHONY: install-into-tmp build-kernel-source-tree build-kernel-dkms-tree kernel-source-tree
+override_dh_auto_install: install-into-tmp build-kernel-source-tree build-kernel-dkms-tree
+
+install-into-tmp:
+	# "Install" into debian/tmp.
+	cp -al NVIDIA-Linux/ debian/tmp
+	rm -f debian/tmp/NVIDIA_Changelog
+	cp -al NVIDIA-Linux-amd64/NVIDIA_Changelog debian/tmp/
+	gzip -9fn debian/tmp/nvidia-smi.1
+
+	# Create xorg.conf.sample
+	test ! -f debian/tmp/usr/share/doc/XF86Config.sample || \
+	sed \
+	    -e 's/XF86Config(4\/5)/xorg.conf(5)/g' \
+	    -e 's/XF86Config/xorg.conf/g' \
+	    -e 's/XFree86/Xorg/g' \
+	    < debian/tmp/usr/share/doc/XF86Config.sample \
+	    > debian/tmp/usr/share/doc/xorg.conf.sample
+
+build-kernel-source-tree: install-into-tmp
+	# Build the nvidia-kernel-source tree.
+	mkdir -p $(module_source)
+	mv debian/tmp/kernel/* $(module_source)/
+	# This copy of the changelog is going to be installed into the module
+	# binary packages.
+	cp -a debian/tmp/NVIDIA_Changelog $(module_source)/
+
+	# We only want Kbuild.
+	rm -f $(module_source)/makefile
+	rm -f $(module_source)/Makefile.nvidia
+	test ! -f $(module_source)/Makefile.kbuild || \
+		mv $(module_source)/Makefile.kbuild $(module_source)/Kbuild
+	test ! -f $(module_source)/Makefile || \
+		mv $(module_source)/Makefile $(module_source)/Kbuild
+	mv $(module_source)/conftest.sh $(module_source)/conftest_nvidia.sh
+
+	# For the nvidia-uvm module.
+	test ! -f $(module_source)/uvm/Makefile || \
+		mv $(module_source)/uvm/Makefile $(module_source)/uvm/Kbuild
+	test ! -d $(module_source)/uvm || \
+		ln -sf ../Makefile $(module_source)/uvm
+	test ! -d $(module_source)/uvm || \
+		ln -sf ../conftest.sh $(module_source)/uvm
+
+	# We may need nv-kernel.o for several architectures to accomodate
+	# all kernel flavors. Use Kbuild-compatible names.
+	rm -f $(module_source)/nv-kernel.o
+	$(foreach a,$(DEB_HOST_ARCH) $(ARCH_DEPS_$(DEB_HOST_ARCH)),cp -a NVIDIA-Linux-$a/kernel/nv-kernel.o $(module_source)/nv-kernel-$a.o_shipped ;)
+
+	# Install a debian/ tree and new conftest files that work purely
+	# with kbuild and don't require root into the module package.
+	cp -a debian/module/* $(module_source)/
+	cp -a debian/copyright $(module_source)/debian/
+	cp -a debian/bug-script $(module_source)/debian/
+	cp -a debian/bug-control $(module_source)/debian/
+	echo "Submit-As: $(nvidia)-kernel-source" >> $(module_source)/debian/bug-control
+
+	# Fix permissions.
+	chmod -R a-sx,u=rwX,go=rX $(module_source)/../..
+	chmod a+x $(module_source)/debian/rules
+	chmod a+x $(module_source)/conftest.sh
+	chmod a+x $(module_source)/conftest_nvidia.sh
+	find '$(module_source)/../../modules' -depth -newermt '$(BUILD_DATE)' -print0 | \
+		xargs -0r touch --no-dereference --date='$(BUILD_DATE)'
+
+	# Build the tarball.
+	(cd $(module_source)/../.. && find modules -print0) | \
+	  LC_ALL=C sort -z | \
+	  tar cfJ $(module_txz) \
+	    --owner=root --group=src -C $(module_source)/../.. \
+	    --exclude '*.in' --exclude '.svn' \
+	    --null -T - --no-recursion
+	tar tfvJ $(module_txz)
+
+build-kernel-dkms-tree: build-kernel-source-tree
+	# Use the nvidia-kernel-source source to create the DKMS tree.
+	mkdir -p $(dir $(dkms_source))
+	mv $(module_source) $(dkms_source)
+	rmdir $(dir $(module_source))
+	cd $(dkms_source) \
+	    && QUILT_PATCHES=debian/patches quilt --quiltrc /dev/null push -a || test $$? = 2 \
+	    && rm -rf .pc debian
+	ls -la $(dkms_source)
+
+# This target is not used by the package build process.  You can use it if
+# you want to work with the patches that get applied to the module source.
+kernel-source-tree: prepare build-kernel-source-tree
+	rm -rf $@
+	cp -a $(module_source) $@
+	cd $@ && QUILT_PATCHES=../debian/module/debian/patches quilt --quiltrc /dev/null push -a || test $$? = 2
+
+override_dh_install:
+	dh_install --list-missing
+
+override_dh_installchangelogs:
+	dh_installchangelogs debian/tmp/NVIDIA_Changelog
+
+override_dh_dkms:
+	dh_dkms -V $(version)
+
+override_dh_bugfiles:
+	dh_bugfiles -A
+
+override_dh_makeshlibs:
+	dh_makeshlibs -Xvdpau/libvdpau_nvidia.so -Xtls/libnvidia-tls.so
+
+override_dh_shlibdeps:
+	LD_LIBRARY_PATH=/$(libdir)/$(nvidia_private):$(LD_LIBRARY_PATH) dh_shlibdeps
+
+override_dh_gencontrol:
+	dh_gencontrol -- -V'nvidia:Version=$(version)' \
+		-V'nvidia:xorgDepends=$(xorg_depends)' \
+		-V'nvidia:xorgProvides=$(xorg_provides)' \
+		-V'nvidia=$(nvidia)' \
+		-V'libcuda1=$(libcuda1)' \
+		-V'nvidia:Legacy=$(legacy)' \
+		-V'nvidia:LegacyDesc=$(legacy_description)' \
+		-V'nvidia:Perfkit=$(perfkit)' \
+		-V'nvidia-alternative=$(NVIDIA_ALTERNATIVE)' \
+		-V'nvidia-settings=$(NVIDIA_SETTINGS)' \
+		-V'nvidia:kmod:binary=$${nvidia}-kernel-dkms (= $${binary:Version}) | $${nvidia}-kernel-$${nvidia:Version}$${nvidia:Perfkit}' \
+		-V'nvidia:kmod:source=$${nvidia}-kernel-dkms (>= $${nvidia:Version}) | $${nvidia}-kernel-source (>= $${nvidia:Version})' \
+		-Vnvidia:kmod:Description="`cat debian/control.kmod`" \
+		-Vnvidia:Models="`cat debian/control.models`"
+
+# Do not run dh_strip here.  The NVIDIA license says:
+#
+#     2.1.2 Linux/FreeBSD Exception.  Notwithstanding the foregoing terms of
+#     Section 2.1.1, SOFTWARE designed exclusively for use on the Linux or
+#     FreeBSD operating systems, or other operating systems derived from the
+#     source code to these operating systems, may be copied and
+#     redistributed, provided that the binary files thereof are not modified
+#     in any way (except for unzipping of compressed files).
+#
+# Stripping the binary modules would constitute modifying the binary files
+# in a way other than unzipping of compressed files.
+override_dh_strip:
+
+############################################################################
+
+# Generating control files
+%:: %.in debian/rules debian/rules.defs
+	perl -p \
+	-e 's{#VERSION#}{$(version)}g;' \
+	-e 's{#MAJOR#}{$(version_major)}g;' \
+	-e 's{#NVIDIA#}{$(nvidia)}g;' \
+	-e 's{#LEGACY#}{$(legacy)}g;' \
+	-e 's{#MODULE#}{$(module)}g;' \
+	-e 's{#NVIDIA_ALTERNATIVE#}{$(NVIDIA_ALTERNATIVE)}g;' \
+	-e 's{#WATCH_PATTERN#}{$(subst \,\\,$(watch_pattern))}g;' \
+	-e 's{#LIBDIR#}{$(libdir)}g;' \
+	-e 's{#PRIVATE#}{$(nvidia_private)}g;' \
+	-e 's{#!armhf#}{$(if $(filter armhf,$(DEB_HOST_ARCH)),#)}g;' \
+	-e 's{#!legacy#}{$(if $(legacy),#)}g;' \
+	< $< > $@
+
+debian/module/debian/changelog: debian/changelog
+	sed '1s/^nvidia-graphics-drivers$(legacy)/$(nvidia)-kernel/g' $< > $@
+
+
+# Renaming control files for legacy packaging
+define rename-template
+$2%: $1%
+	cp -a $$< $$@
+endef
+ifneq (,$(legacy))
+$(foreach p,$(CONTROL_PREFIXES),$(eval $(call rename-template,$p,$(call renamed_prefix,$p))))
+endif
+
+############################################################################
+
+# only invoked manually
+%.txt: %.list
+	cat $< \
+	| sed -e 's/^10DE.... *//; /^$$/d' \
+	| uniq \
+	| sed -e 's/ /#/g; s/#*$$/,/; $$ s/,$$/./' \
+	| ( tr '\n' ' '; echo ) \
+	| fold -s -w 78 \
+	| sed -e 's/#/ /g; s/ *$$//' > $@
+
+# only invoked manually
+pci.ids.nvidia: /usr/share/misc/pci.ids
+	sed -nr '/^10de/,/^10df/ { /^\t\t/d; /\t/ { s/  (.*) \[(.*)\]$$/  \2 [\1]/; s/^\t/10de/; p} }' $< > $@.tmp
+	cut -c 1-8 $@.tmp | tr a-f A-F > $@.tmp1
+	cut -c 9- $@.tmp | paste -d '' $@.tmp1 - > $@
+	$(RM) $@.tmp $@.tmp1
+
+# only invoked manually
+%.names: %.ids pci.ids.nvidia
+	cat $< | \
+	while read id ; do \
+		grep ^$$id pci.ids.nvidia || echo $$id ; \
+	done > $@
+
+# only invoked manually
+file-lists: $(patsubst %,debian/files_$(NVIDIA_RELEASE)_%,$(ARCH_LIST))
+debian/files_$(NVIDIA_RELEASE)_%: NVIDIA-Linux-%
+	(cd $< && find .) | sed 's/$(NVIDIA_RELEASE)/VERSION/g' | sort > $@
+
+############################################################################
+
+PASV	?= --pasv
+
+.PHONY: get-orig-source
+get-orig-source:
+	rm -rf get-orig-source || true
+	mkdir get-orig-source
+	ln -v ../.cache/*-$(version).run get-orig-source/ 2>/dev/null || true
+	ln -v ../.cache/*-$(version)-*.run get-orig-source/ 2>/dev/null || true
+	uscan --no-symlink --download-current-version $(PASV) \
+	    --watchfile debian/watch --destdir get-orig-source
+	test $$(ls get-orig-source/* | wc -l) = $(words $(ARCH_LIST))  # we need one file per architecture
+	@set -e -x ; \
+	    cd get-orig-source ; \
+	    newversion=$$(ls *-x86-*.run | sed -e 's/.*-\([0-9.]*\)\(-.*\)\?\.run/\1/') ; \
+	    mkdir nvidia-graphics-drivers-$${newversion}.orig ; \
+	    mv *.run nvidia-graphics-drivers-$${newversion}.orig/ ; \
+	    chmod 0755 nvidia-graphics-drivers-$${newversion}.orig/* ; \
+	    tar cfvz ../nvidia-graphics-drivers$(legacy)_$$newversion.orig.tar.gz \
+		--owner=root --group=src \
+		nvidia-graphics-drivers-$${newversion}.orig
+	rm -rf get-orig-source
