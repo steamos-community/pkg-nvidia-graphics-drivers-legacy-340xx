@@ -1,4 +1,4 @@
-nvidia-graphics-drivers-legacy-340xx (340.76-1rocket1) alchemist; urgency=medium
+nvidia-graphics-drivers-legacy-340xx (340.76-1rocket1) alchemist-beta; urgency=medium
 
   * Turn into legacy driver, for SteamOS
 
