@@ -1,2 +1,4 @@
-alias nvidia #MODULE#
-remove #MODULE# rmmod nvidia nvidia-uvm
+alias nvidia nvidia-current
+remove nvidia-current rmmod nvidia nvidia-uvm
+# force manual loading of the correct kernel module via init script
+blacklist nvidia-legacy-340xx
