@@ -1,3 +1,10 @@
+nvidia-graphics-drivers-legacy-340xx (340.76-1rocket2) alchemist-beta; urgency=medium
+
+  * [156dc87] ALWAYS use the nvidia-current module first and foremost - only 
+    load the fallback module manually.
+
+ -- Jo Shields <directhex@apebox.org>  Sat, 28 Mar 2015 16:25:36 +0000
+
 nvidia-graphics-drivers-legacy-340xx (340.76-1rocket1) alchemist-beta; urgency=medium
 
   * Turn into legacy driver, for SteamOS
