@@ -1,2 +1,0 @@
-#MODULE#.ko lib/modules/#KVERS#/nvidia/
-uvm/nvidia-uvm.ko lib/modules/#KVERS#/nvidia/
