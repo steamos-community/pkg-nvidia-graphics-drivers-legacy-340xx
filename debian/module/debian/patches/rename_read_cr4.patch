@@ -1,0 +1,23 @@
+diff -urNad kernel.old/nv-pat.c kernel/nv-pat.c
+--- kernel.old/nv-pat.c	2015-01-22 19:01:16.000000000 +0000
++++ kernel/nv-pat.c	2015-08-14 17:02:00.439019693 +0100
+@@ -35,8 +35,8 @@
+     unsigned long cr0 = read_cr0();
+     write_cr0(((cr0 & (0xdfffffff)) | 0x40000000));
+     wbinvd();
+-    *cr4 = read_cr4();
+-    if (*cr4 & 0x80) write_cr4(*cr4 & ~0x80);
++    *cr4 = __read_cr4();
++    if (*cr4 & 0x80) __write_cr4(*cr4 & ~0x80);
+     __flush_tlb();
+ }
+ 
+@@ -46,7 +46,7 @@
+     wbinvd();
+     __flush_tlb();
+     write_cr0((cr0 & 0x9fffffff));
+-    if (cr4 & 0x80) write_cr4(cr4);
++    if (cr4 & 0x80) __write_cr4(cr4);
+ }
+ 
+ static int nv_determine_pat_mode(void)
