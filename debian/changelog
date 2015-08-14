@@ -1,3 +1,10 @@
+nvidia-graphics-drivers-legacy-340xx (340.76-1rocket3) brewmaster-beta; urgency=medium
+
+  * [cf8db7b] Patch from https://bugs.launchpad.net/ubuntu/+source/
+    nvidia-graphics-drivers-304-updates/+bug/1431278/comments/6 to build on 3.19+
+
+ -- Jo Shields <directhex@apebox.org>  Fri, 14 Aug 2015 17:04:22 +0100
+
 nvidia-graphics-drivers-legacy-340xx (340.76-1rocket2) alchemist-beta; urgency=medium
 
   * [156dc87] ALWAYS use the nvidia-current module first and foremost - only 
