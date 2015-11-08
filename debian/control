@@ -254,7 +254,7 @@ Package: nvidia-legacy-340xx-alternative
 Architecture: i386 amd64 armhf
 Multi-Arch: foreign
 Depends:
- glx-alternative-nvidia (>= 0.7),
+ glx-alternative-nvidia (>= 0.6.93),
  ${misc:Depends}
 Conflicts:
  libgl1-nvidia-alternatives,
